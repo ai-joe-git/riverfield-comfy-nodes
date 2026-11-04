@@ -1,7 +1,7 @@
 [project]
 name = "riverfield-comfy-nodes"
 description = "Timeline builders for the MiniMax H3 Material Planner and the LTX 2.5 Director, plus a Gemma 4 attention fix for ROCm."
-version = "0.1.0"
+version = "0.1.1"
 license = { text = "MIT" }
 dependencies = []
 dynamic = []
