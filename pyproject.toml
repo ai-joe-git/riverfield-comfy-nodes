@@ -1,0 +1,16 @@
+[project]
+name = "riverfield-comfy-nodes"
+description = "Timeline builders for the MiniMax H3 Material Planner and the LTX 2.5 Director, plus a Gemma 4 attention fix for ROCm."
+version = "0.1.0"
+license = { text = "MIT" }
+dependencies = []
+dynamic = []
+
+[project.urls]
+Repository = "https://github.com/ai-joe-git/riverfield-comfy-nodes"
+
+[tool.comfy]
+PublisherId = "ai-joe-git"
+DisplayName = "RiverField"
+Icon = ""
+includes = []
