@@ -13,11 +13,11 @@ Three small, self-contained nodes used by the RiverField studio:
 
 None of them modify another pack's files.
 """
-from .nodes import gemma4_attn, h3_planner, ltx_planner
+from .nodes import gemma4_attn, h3_planner, ltx_planner, upscale_video
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
-for _module in (gemma4_attn, h3_planner, ltx_planner):
+for _module in (gemma4_attn, h3_planner, ltx_planner, upscale_video):
     NODE_CLASS_MAPPINGS.update(getattr(_module, "NODE_CLASS_MAPPINGS", {}))
     NODE_DISPLAY_NAME_MAPPINGS.update(getattr(_module, "NODE_DISPLAY_NAME_MAPPINGS", {}))
 

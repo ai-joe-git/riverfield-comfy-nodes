@@ -52,6 +52,15 @@ attention. On ROCm 10.1 / gfx1151 the SDPA kernel traps on the Gemma 4 encoder o
 H3 video quadratic in memory, so the fix is scoped to the encoder. CUDA and CPU builds are
 left untouched.
 
+
+### RiverField Upscale Video
+
+Chunked ESRGAN (or any spandrel) upscale for long clips. One frame at a time, one
+chunk file every `chunk_seconds`, concatenated with ffmpeg stream copy, then the
+source audio is muxed with `-c:a copy`. No full-clip decode in memory: a 2 h video
+stays at a flat RAM footprint. `keep_chunks` keeps the per-chunk mp4s for a manual
+resume after a crash.
+
 ## Install
 
 ComfyUI Manager: search for **RiverField**, or install `riverfield-comfy-nodes`.

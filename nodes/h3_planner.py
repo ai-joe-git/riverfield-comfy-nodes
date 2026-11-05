@@ -100,28 +100,46 @@ def build_timeline(
         except Exception:
             spec = None
 
-    image_files = [f for f in (images or []) if f][:MAX_IMAGES]
-    audio_files = [f for f in (audios or []) if f][:MAX_AUDIOS]
-    video_files = [f for f in (videos or []) if f][:MAX_VIDEOS]
+    # Keep the panel's slot positions: a window refers to "Picture 2" by its slot
+    # index, so dropping Picture 1 must not renumber the rest. Slots are the app's
+    # image1..image9 / video1..3 / audio1..3 inputs, empty or not.
+    image_slots = list(images or [])[:MAX_IMAGES]
+    audio_slots = list(audios or [])[:MAX_AUDIOS]
+    video_slots = list(videos or [])[:MAX_VIDEOS]
 
-    image_assets = [
-        {"id": _asset_id("rf-image", i), "file": f, "name": f.replace("\\", "/").split("/")[-1]}
-        for i, f in enumerate(image_files)
-    ]
-    audio_assets = [
-        {
-            "id": _asset_id("rf-audio", i),
+    image_assets = []
+    image_ids = {}
+    for slot, f in enumerate(image_slots):
+        if not f:
+            continue
+        image_assets.append({"id": _asset_id("rf-image", slot), "file": f,
+                             "name": f.replace("\\", "/").split("/")[-1]})
+        image_ids[slot] = image_assets[-1]["id"]
+
+    audio_assets = []
+    audio_ids = {}
+    audio_by_slot = {}
+    for slot, f in enumerate(audio_slots):
+        if not f:
+            continue
+        audio_assets.append({
+            "id": _asset_id("rf-audio", slot),
             "file": f,
             "name": f.replace("\\", "/").split("/")[-1],
             "duration": round(seconds, 6),
             "trimStart": 0,
             "audioMode": "locked" if str(audio_mode).lower() == "locked" else "reference",
-        }
-        for i, f in enumerate(audio_files)
-    ]
-    video_assets = [
-        {
-            "id": _asset_id("rf-video", i),
+        })
+        audio_ids[slot] = audio_assets[-1]["id"]
+        audio_by_slot[slot] = audio_assets[-1]
+
+    video_assets = []
+    video_by_slot = {}
+    for slot, f in enumerate(video_slots):
+        if not f:
+            continue
+        video_assets.append({
+            "id": _asset_id("rf-video", slot),
             "file": f,
             "name": f.replace("\\", "/").split("/")[-1],
             "start": 0,
@@ -134,12 +152,8 @@ def build_timeline(
             "referenceHeight": 0,
             "proxy": "",
             "peaks": [],
-        }
-        for i, f in enumerate(video_files)
-    ]
-
-    image_ids = [a["id"] for a in image_assets]
-    audio_ids = [a["id"] for a in audio_assets]
+        })
+        video_by_slot[slot] = video_assets[-1]
 
     spec_windows = None
     if isinstance(spec, dict) and isinstance(spec.get("windows"), list) and spec["windows"]:
@@ -153,8 +167,8 @@ def build_timeline(
                 "startFrame": start,
                 "endFrame": end,
                 "prompt": str(raw.get("prompt") or ""),
-                "images": [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and 0 <= i < len(image_ids)],
-                "audios": [audio_ids[i] for i in (raw.get("audios") or []) if isinstance(i, int) and 0 <= i < len(audio_ids)],
+                "images": [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and i in image_ids],
+                "audios": [audio_ids[i] for i in (raw.get("audios") or []) if isinstance(i, int) and i in audio_ids],
             })
     if spec_windows:
         windows = spec_windows
@@ -165,16 +179,16 @@ def build_timeline(
         windows = create_windows(count, frames)
         for i, window in enumerate(windows):
             window["prompt"] = prompts[i] if i < len(prompts) else ""
-            window["images"] = list(image_ids)
-            window["audios"] = list(audio_ids)
+            window["images"] = list(image_ids.values())
+            window["audios"] = list(audio_ids.values())
 
     # timing des clips vidéo/audio venant du panneau
     if isinstance(spec, dict):
         for item in (spec.get("videos") or []):
             if not isinstance(item, dict): continue
             i = item.get("index")
-            if isinstance(i, int) and 0 <= i < len(video_assets):
-                clip = video_assets[i]
+            clip = video_by_slot.get(i) if isinstance(i, int) else None
+            if clip is not None:
                 clip["start"] = max(0.0, float(item.get("start", 0) or 0))
                 clip["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
                 clip["trimStart"] = max(0.0, float(item.get("trimStart", 0) or 0))
@@ -191,9 +205,10 @@ def build_timeline(
         for item in (spec.get("audios") or []):
             if not isinstance(item, dict): continue
             i = item.get("index")
-            if isinstance(i, int) and 0 <= i < len(audio_assets):
-                audio_assets[i]["trimStart"] = max(0.0, float(item.get("trimStart", 0) or 0))
-                audio_assets[i]["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
+            clip = audio_by_slot.get(i) if isinstance(i, int) else None
+            if clip is not None:
+                clip["trimStart"] = max(0.0, float(item.get("trimStart", 0) or 0))
+                clip["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
 
     document = {
         "version": 10,
