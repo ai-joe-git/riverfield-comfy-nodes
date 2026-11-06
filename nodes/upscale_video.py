@@ -77,7 +77,12 @@ class RiverFieldUpscaleVideo:
         out_w -= out_w % 2
         out_h -= out_h % 2
 
-        comfy.model_management.load_models_gpu([upscale_model.patcher], force_full_load=True)
+        batch_frames = 4
+        memory_required = (512 * 512 * 3) * 4 * max(factor, 1.0) * 384.0
+        memory_required += out_w * out_h * 3 * 4 * batch_frames
+        comfy.model_management.load_models_gpu([upscale_model.patcher],
+                                               memory_required=memory_required,
+                                               force_full_load=True)
         device = upscale_model.patcher.load_device
         out_device = comfy.model_management.intermediate_device()
 
@@ -86,18 +91,18 @@ class RiverFieldUpscaleVideo:
         chunk_dir = os.path.join(work, f"chunks_{key}")
         os.makedirs(chunk_dir, exist_ok=True)
 
-        def upscale_frame(array):
-            image = torch.from_numpy(array.copy()).float().div_(255.0).unsqueeze(0)
-            image = image.movedim(-1, -3).to(device)
+        def upscale_batch(arrays):
+            images = torch.from_numpy(np.stack(arrays).copy()).float().div_(255.0)
+            images = images.movedim(-1, -3).to(device)
             scaled = comfy.utils.tiled_scale(
-                image, lambda a: upscale_model(a.float()),
+                images, lambda a: upscale_model(a.float()),
                 tile_x=tile, tile_y=tile, overlap=32,
                 upscale_amount=factor, output_device=out_device,
             )
             scaled = torch.clamp(scaled.movedim(-3, -1), 0.0, 1.0)
             if scaled.shape[1] != out_h or scaled.shape[2] != out_w:
                 scaled = comfy.utils.common_upscale(scaled.movedim(-1, -3), out_w, out_h, "lanczos", "disabled").movedim(-3, -1)
-            return (scaled[0].cpu().numpy() * 255.0).round().astype(np.uint8)
+            return [(item.cpu().numpy() * 255.0).round().astype(np.uint8) for item in scaled]
 
         chunk_paths = []
         container = av.open(source)
@@ -134,8 +139,10 @@ class RiverFieldUpscaleVideo:
                 encoder = None
 
             out_stream = open_chunk()
-            for frame in container.decode(stream):
-                array = upscale_frame(frame.to_ndarray(format="rgb24"))
+            pending = []
+
+            def encode_frame(array):
+                nonlocal out_stream, written, index
                 video_frame = av.VideoFrame.from_ndarray(array, format="rgb24")
                 for packet in out_stream.encode(video_frame):
                     encoder.mux(packet)
@@ -144,8 +151,20 @@ class RiverFieldUpscaleVideo:
                     close_chunk()
                     index += 1
                     out_stream = open_chunk()
+
+            for frame in container.decode(stream):
+                pending.append(frame.to_ndarray(format="rgb24"))
+                if len(pending) >= batch_frames:
+                    for array in upscale_batch(pending):
+                        encode_frame(array)
+                    if bar is not None:
+                        bar.update(len(pending))
+                    pending = []
+            if pending:
+                for array in upscale_batch(pending):
+                    encode_frame(array)
                 if bar is not None:
-                    bar.update(1)
+                    bar.update(len(pending))
             close_chunk()
         finally:
             container.close()

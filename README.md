@@ -55,7 +55,7 @@ left untouched.
 
 ### RiverField Upscale Video
 
-Chunked ESRGAN (or any spandrel) upscale for long clips. One frame at a time, one
+Chunked ESRGAN (or any spandrel) upscale for long clips. Four frames per batch, one
 chunk file every `chunk_seconds`, concatenated with ffmpeg stream copy, then the
 source audio is muxed with `-c:a copy`. No full-clip decode in memory: a 2 h video
 stays at a flat RAM footprint. `keep_chunks` keeps the per-chunk mp4s for a manual
