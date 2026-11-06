@@ -80,7 +80,7 @@ Restart ComfyUI. The nodes appear under the **RiverField** category.
 - For the planners: the pack that owns the target widget — `MiniMaxH3TimelinePlanner`
   (Comfy-Org MiniMax H3) or `LTXDirectorCS25` (CGlide's LTX-2.5-Director). The planners do not
   import them; they only produce strings.
-- `ffmpeg` on the PATH for the LTX reference sheet clip.
+- `ffmpeg` on the PATH and the `ffmpeg-python` package (installed by ComfyUI Manager; `pip install ffmpeg-python` for a manual clone) for the LTX reference sheet clip, the chunk join and the audio mux.
 
 ## License
 

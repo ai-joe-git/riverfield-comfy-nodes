@@ -1,9 +1,9 @@
 [project]
 name = "riverfield-comfy-nodes"
 description = "Timeline builders for the MiniMax H3 Material Planner and the LTX 2.5 Director, a Gemma 4 attention fix for ROCm, and a chunked ESRGAN video upscaler."
-version = "0.2.1"
+version = "0.2.2"
 license = { text = "MIT" }
-dependencies = []
+dependencies = ["ffmpeg-python"]
 dynamic = []
 
 [project.urls]

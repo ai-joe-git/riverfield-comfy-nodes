@@ -26,7 +26,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import subprocess
 
 import folder_paths
 
@@ -84,16 +83,18 @@ def reference_video(image_name: str, frames: int, fps: float) -> str | None:
         return os.path.basename(out)
 
     width, height = REFERENCE_SIZE
-    cmd = [
-        "ffmpeg", "-v", "error", "-y", "-loop", "1", "-i", source,
-        "-frames:v", str(max(1, int(frames))), "-r", str(fps),
-        "-vf", (f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-                f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"),
-        "-pix_fmt", "yuv420p", "-c:v", "libx264", out,
-    ]
     try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=120)
-    except (OSError, subprocess.SubprocessError):
+        import ffmpeg  # ffmpeg-python; the ffmpeg binary is already a requirement
+
+        (
+            ffmpeg.input(source, loop=1)
+            .filter("scale", width, height, force_original_aspect_ratio="decrease")
+            .filter("pad", width, height, "(ow-iw)/2", "(oh-ih)/2")
+            .output(out, vframes=max(1, int(frames)), r=fps, pix_fmt="yuv420p", vcodec="libx264")
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)
+        )
+    except Exception:
         return None
     return os.path.basename(out) if os.path.isfile(out) else None
 

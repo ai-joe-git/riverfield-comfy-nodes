@@ -14,7 +14,6 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
-import subprocess
 
 from fractions import Fraction
 
@@ -174,13 +173,29 @@ class RiverFieldUpscaleVideo:
             for path in chunk_paths:
                 handle.write(f"file '{path}'\n")
         joined = os.path.join(work, f"joined_{key}.mp4")
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0",
-                        "-i", list_path, "-c", "copy", joined], check=True)
+        import ffmpeg  # ffmpeg-python; the ffmpeg binary is already a requirement
+
+        (
+            ffmpeg.input(list_path, format="concat", safe=0)
+            .output(joined, c="copy")
+            .overwrite_output()
+            .run(capture_stdout=True, capture_stderr=True)
+        )
 
         final = os.path.join(work, f"upscaled_{key}.mp4")
-        if keep_audio:
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", joined, "-i", source,
-                            "-map", "0:v:0", "-map", "1:a:0?", "-c", "copy", "-shortest", final], check=True)
+        has_audio = keep_audio and any(
+            s.get("codec_type") == "audio" for s in ffmpeg.probe(source).get("streams", [])
+        )
+        if has_audio:
+            (
+                ffmpeg.output(
+                    ffmpeg.input(joined)["v:0"],
+                    ffmpeg.input(source)["a:0"],
+                    final, c="copy", shortest=None,
+                )
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
         else:
             shutil.move(joined, final)
 
